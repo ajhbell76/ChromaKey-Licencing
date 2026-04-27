@@ -6,6 +6,12 @@
 	<?php if ( isset( $_GET['updated'] ) ) : ?>
 		<div class="notice notice-success is-dismissible"><p>Settings saved.</p></div>
 	<?php endif; ?>
+	<?php if ( isset( $_GET['keys_generated'] ) ) : ?>
+		<div class="notice notice-success is-dismissible"><p>Signing key pair generated successfully.</p></div>
+	<?php endif; ?>
+	<?php if ( isset( $_GET['key_error'] ) ) : ?>
+		<div class="notice notice-error is-dismissible"><p><strong>Key generation failed:</strong> <?php echo esc_html( urldecode( $_GET['key_error'] ) ); ?></p></div>
+	<?php endif; ?>
 
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<?php wp_nonce_field( 'ckp_save_settings', 'ckp_nonce' ); ?>
@@ -76,8 +82,14 @@
 						<textarea class="large-text code" rows="8" readonly><?php echo esc_textarea( $pub ); ?></textarea>
 					<?php else : ?>
 						<span class="ckp-key-status ckp-key-missing">&#10007; No key pair found</span>
-						<p class="description">Deactivate and reactivate the plugin to generate keys.</p>
 					<?php endif; ?>
+					<p style="margin-top:8px;">
+						<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=ckp_generate_keys' ), 'ckp_generate_keys', 'ckp_nonce' ) ); ?>"
+							class="button"
+							onclick="return confirm('<?php echo $pub ? 'This will replace the existing key pair. Any desktop apps holding the old public key will stop validating. Continue?' : 'Generate a new signing key pair?'; ?>');">
+							<?php echo $pub ? 'Regenerate Keys' : 'Generate Keys'; ?>
+						</a>
+					</p>
 				</td>
 			</tr>
 		</table>

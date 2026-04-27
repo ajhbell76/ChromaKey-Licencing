@@ -10,6 +10,7 @@ class CKP_Admin_Menu {
 		add_action( 'admin_menu', array( $this, 'register_menus' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_ckp_save_settings', array( $this, 'handle_save_settings' ) );
+		add_action( 'admin_post_ckp_generate_keys', array( $this, 'handle_generate_keys' ) );
 	}
 
 	public function handle_save_settings() {
@@ -35,6 +36,23 @@ class CKP_Admin_Menu {
 		CKP_Settings::set( 'debug_logging', isset( $_POST['ckp_debug_logging'] ) ? '1' : '0' );
 
 		wp_redirect( admin_url( 'admin.php?page=ckp-settings&updated=1' ) );
+		exit;
+	}
+
+	public function handle_generate_keys() {
+		if ( ! current_user_can( CKP_CAPABILITY ) ) {
+			wp_die( 'Unauthorized' );
+		}
+
+		check_admin_referer( 'ckp_generate_keys', 'ckp_nonce' );
+
+		$error = CKP_DB::generate_signing_keys();
+
+		if ( $error ) {
+			wp_redirect( admin_url( 'admin.php?page=ckp-settings&key_error=' . urlencode( $error ) ) );
+		} else {
+			wp_redirect( admin_url( 'admin.php?page=ckp-settings&keys_generated=1' ) );
+		}
 		exit;
 	}
 

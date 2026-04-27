@@ -151,22 +151,40 @@ class CKP_DB {
 		}
 	}
 
-	private static function generate_signing_keys() {
+	public static function generate_signing_keys() {
+		if ( ! extension_loaded( 'openssl' ) ) {
+			return 'The PHP openssl extension is not available on this server.';
+		}
+
+		// Clear any previous openssl errors.
+		while ( openssl_error_string() !== false );
+
 		$key_resource = openssl_pkey_new( array(
 			'private_key_bits' => 2048,
 			'private_key_type' => OPENSSL_KEYTYPE_RSA,
 		) );
 
 		if ( ! $key_resource ) {
-			return;
+			$errors = array();
+			while ( $msg = openssl_error_string() ) {
+				$errors[] = $msg;
+			}
+			return 'openssl_pkey_new() failed: ' . implode( ' | ', $errors );
 		}
 
-		openssl_pkey_export( $key_resource, $private_key_pem );
-		$details    = openssl_pkey_get_details( $key_resource );
-		$public_key_pem = $details['key'];
+		if ( ! openssl_pkey_export( $key_resource, $private_key_pem ) ) {
+			return 'openssl_pkey_export() failed.';
+		}
+
+		$details = openssl_pkey_get_details( $key_resource );
+		if ( ! $details ) {
+			return 'openssl_pkey_get_details() failed.';
+		}
 
 		CKP_Settings::set( 'signing_private_key', $private_key_pem );
-		CKP_Settings::set( 'signing_public_key', $public_key_pem );
+		CKP_Settings::set( 'signing_public_key', $details['key'] );
+
+		return null; // null = success
 	}
 
 	public static function table( $name ) {
