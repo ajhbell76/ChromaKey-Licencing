@@ -478,3 +478,14 @@ Beta testers who hit the activation limit should contact the admin to have a mac
 - **Same-machine reactivation:** if the same `device_fingerprint_hash` + `installation_id_hash` pair activates again while the activation is still active, the server reuses the existing record rather than consuming a new slot. This handles the case where the user reinstalls the app.
 - **Background validation** should be non-blocking — run in a thread and only update the UI if the result changes the state.
 - **Never store the raw licence key** in the cache or logs. The user enters it once; it is sent to the server and then discarded.
+- **Exported Signing Key from the plugin settings page** :
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2VTzBxI+gUAmXSQ+H7RK
+yE2158QezjIGN2D9HKPqlmjuhip874djdVnCWVBvmADXbfUXyWAslruL/weWm7Uc
+cp4tFtik69Cu80lMIZeODmPuECObIf0AmaYG9Fx40X3Zvtc/26jIEi8kQYu3H+GT
+OWK8aMZcfcjP7vhPzOG/fuQ2e5uHs7KWgl5QpB3r2syDfXb3fZA5P1l5Bs9YfTrn
+h8POCOJ8dvXJ5MO/11TXWrT3TfjDO4rDvGo3SF66NLQFKZXUVDtPayWvOPyFxfTs
+MKxaZPqtokEE3KfKtQhbFbef667bsfuzpFJzf+ud1rhr6fw5c4C6sZhb5XgOKCKt
+mQIDAQAB
+-----END PUBLIC KEY-----
+
