@@ -15,6 +15,7 @@ class CKP_Admin_Menu {
 		add_action( 'admin_post_ckp_customer_action', array( $this, 'handle_customer_action' ) );
 		add_action( 'admin_post_ckp_save_licence', array( $this, 'handle_save_licence' ) );
 		add_action( 'admin_post_ckp_licence_action', array( $this, 'handle_licence_action' ) );
+		add_action( 'admin_post_ckp_activation_action', array( $this, 'handle_activation_action' ) );
 	}
 
 	public function register_menus() {
@@ -339,6 +340,41 @@ class CKP_Admin_Menu {
 		}
 
 		wp_redirect( admin_url( 'admin.php?page=ckp-licences&ckp_msg=' . urlencode( 'Licence updated.' ) ) );
+		exit;
+	}
+
+	// -------------------------------------------------------------------------
+	// Activation handlers
+	// -------------------------------------------------------------------------
+
+	public function handle_activation_action() {
+		if ( ! current_user_can( CKP_CAPABILITY ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		$id = (int) ( $_GET['id'] ?? 0 );
+		check_admin_referer( 'ckp_activation_action_' . $id );
+
+		$activation_action = sanitize_key( $_GET['activation_action'] ?? '' );
+
+		$result = null;
+		switch ( $activation_action ) {
+			case 'deactivate':
+				CKP_Activation_Service::admin_deactivate( $id );
+				$msg = 'Machine deactivated.';
+				break;
+			case 'revoke':
+				CKP_Activation_Service::admin_revoke( $id );
+				$msg = 'Activation revoked.';
+				break;
+			case 'reactivate':
+				$result = CKP_Activation_Service::admin_reactivate( $id );
+				$msg    = is_wp_error( $result ) ? $result->get_error_message() : 'Activation reinstated.';
+				break;
+			default:
+				$msg = 'Unknown action.';
+		}
+
+		wp_redirect( admin_url( 'admin.php?page=ckp-activations&ckp_msg=' . urlencode( $msg ) ) );
 		exit;
 	}
 

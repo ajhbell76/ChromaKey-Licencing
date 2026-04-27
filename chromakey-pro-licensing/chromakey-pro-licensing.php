@@ -3,7 +3,7 @@
  * Plugin Name:       ChromaKey Pro Licensing
  * Plugin URI:        https://github.com/ajhbell76/ChromaKey-Licencing
  * Description:       Beta licensing system for ChromaKey Pro desktop application.
- * Version:           0.6.0
+ * Version:           0.7.0
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            ChromaKey Pro
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CKP_VERSION', '0.6.0' );
+define( 'CKP_VERSION', '0.7.0' );
 define( 'CKP_PLUGIN_FILE', __FILE__ );
 define( 'CKP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CKP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -33,6 +33,7 @@ require_once CKP_PLUGIN_DIR . 'includes/class-ckp-validation-service.php';
 require_once CKP_PLUGIN_DIR . 'includes/class-ckp-rest-api.php';
 require_once CKP_PLUGIN_DIR . 'includes/class-ckp-customers-table.php';
 require_once CKP_PLUGIN_DIR . 'includes/class-ckp-licences-table.php';
+require_once CKP_PLUGIN_DIR . 'includes/class-ckp-activations-table.php';
 require_once CKP_PLUGIN_DIR . 'includes/class-ckp-admin-menu.php';
 
 register_activation_hook( __FILE__, array( 'CKP_Activator', 'activate' ) );

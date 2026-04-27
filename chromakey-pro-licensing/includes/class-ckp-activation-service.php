@@ -153,6 +153,84 @@ class CKP_Activation_Service {
 		return true;
 	}
 
+	/**
+	 * Admin deactivate — no fingerprint check required.
+	 */
+	public static function admin_deactivate( $activation_id ) {
+		global $wpdb;
+		$now = current_time( 'mysql', true );
+		$wpdb->update(
+			CKP_DB::table( 'activations' ),
+			array(
+				'status'             => 'deactivated',
+				'deactivated_at'     => $now,
+				'deactivated_reason' => 'admin_action',
+				'updated_at'         => $now,
+			),
+			array( 'id' => $activation_id ),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+		CKP_Audit_Service::log( 'activation_deactivated', 'activation', $activation_id );
+	}
+
+	/**
+	 * Admin revoke — blocks the activation slot permanently unless admin reinstates.
+	 */
+	public static function admin_revoke( $activation_id ) {
+		global $wpdb;
+		$now = current_time( 'mysql', true );
+		$wpdb->update(
+			CKP_DB::table( 'activations' ),
+			array(
+				'status'             => 'revoked',
+				'deactivated_at'     => $now,
+				'deactivated_reason' => 'admin_revoke',
+				'updated_at'         => $now,
+			),
+			array( 'id' => $activation_id ),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+		CKP_Audit_Service::log( 'activation_revoked', 'activation', $activation_id );
+	}
+
+	/**
+	 * Admin reactivate — restores a deactivated activation.
+	 */
+	public static function admin_reactivate( $activation_id ) {
+		global $wpdb;
+		$now = current_time( 'mysql', true );
+
+		// Check the licence still has room.
+		$activation = self::get_activation( $activation_id );
+		if ( $activation ) {
+			$active_count = self::count_active( $activation->licence_id );
+			$limit        = (int) $wpdb->get_var( $wpdb->prepare(
+				'SELECT activation_limit FROM `' . CKP_DB::table( 'licences' ) . '` WHERE id = %d',
+				$activation->licence_id
+			) );
+			if ( $active_count >= $limit ) {
+				return new WP_Error( 'activation_limit_reached', 'Activation limit already reached — deactivate another machine first.' );
+			}
+		}
+
+		$wpdb->update(
+			CKP_DB::table( 'activations' ),
+			array(
+				'status'             => 'active',
+				'deactivated_at'     => null,
+				'deactivated_reason' => '',
+				'updated_at'         => $now,
+			),
+			array( 'id' => $activation_id ),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+		CKP_Audit_Service::log( 'activation_reactivated', 'activation', $activation_id );
+		return true;
+	}
+
 	private static function get_activation( $id ) {
 		global $wpdb;
 		return $wpdb->get_row( $wpdb->prepare(
