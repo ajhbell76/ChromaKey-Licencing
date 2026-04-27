@@ -19,12 +19,12 @@ class CKP_Rest_API {
 			'permission_callback' => '__return_true',
 		) );
 
-		// Stubs for WP-5 and WP-6.
 		register_rest_route( self::NAMESPACE, '/validate', array(
 			'methods'             => 'POST',
-			'callback'            => array( $this, 'not_implemented' ),
+			'callback'            => array( $this, 'validate' ),
 			'permission_callback' => '__return_true',
 		) );
+		// Stub for WP-6.
 		register_rest_route( self::NAMESPACE, '/deactivate', array(
 			'methods'             => 'POST',
 			'callback'            => array( $this, 'not_implemented' ),
@@ -157,6 +157,77 @@ class CKP_Rest_API {
 				'activation_limit' => (int) $licence->activation_limit,
 				'signature'        => $signature,
 			)
+		), 200 );
+	}
+
+	// -------------------------------------------------------------------------
+	// POST /validate
+	// -------------------------------------------------------------------------
+
+	public function validate( WP_REST_Request $request ) {
+		if ( ! $this->is_api_enabled() ) {
+			return $this->error( 'api_disabled', 'The licensing API is currently disabled.', 503 );
+		}
+
+		$required = array( 'licence_id', 'activation_id', 'product_code', 'device_fingerprint_hash' );
+		foreach ( $required as $field ) {
+			if ( empty( $request->get_param( $field ) ) ) {
+				return $this->error( 'missing_field', "Field '$field' is required.", 400 );
+			}
+		}
+
+		$params = array(
+			'licence_id'              => (int) $request->get_param( 'licence_id' ),
+			'activation_id'           => (int) $request->get_param( 'activation_id' ),
+			'product_code'            => sanitize_text_field( $request->get_param( 'product_code' ) ),
+			'device_fingerprint_hash' => sanitize_text_field( $request->get_param( 'device_fingerprint_hash' ) ),
+			'computer_name'           => sanitize_text_field( $request->get_param( 'computer_name' ) ?? '' ),
+			'app_version'             => sanitize_text_field( $request->get_param( 'app_version' ) ?? '' ),
+			'os_name'                 => sanitize_text_field( $request->get_param( 'os_name' ) ?? '' ),
+		);
+
+		$result = CKP_Validation_Service::validate( $params );
+
+		if ( is_wp_error( $result ) ) {
+			$code = $result->get_error_code();
+			$this->log_attempt( $params['licence_id'], $params['activation_id'], '', 'failed', $code, $request );
+			$status = in_array( $code, array( 'licence_not_found', 'activation_not_found' ), true ) ? 404 : 403;
+			return $this->error( $code, $result->get_error_message(), $status );
+		}
+
+		$licence    = $result['licence'];
+		$activation = $result['activation'];
+		$now        = gmdate( 'Y-m-d\TH:i:s\Z' );
+		$grace_ts   = strtotime( $activation->next_validation_due_at ) + ( $licence->grace_period_days * DAY_IN_SECONDS );
+
+		// Fetch the account email for the signed payload.
+		global $wpdb;
+		$email = $wpdb->get_var( $wpdb->prepare(
+			'SELECT email FROM `' . CKP_DB::table( 'accounts' ) . '` WHERE id = %d LIMIT 1',
+			$licence->account_id
+		) );
+
+		$payload = CKP_Signing_Service::build_payload( array(
+			'activation_id'          => (int) $activation->id,
+			'email'                  => $email,
+			'expires_at'             => $this->to_iso8601( $licence->expires_at ),
+			'features'               => CKP_Licence_Service::get_features( $licence ),
+			'grace_ends_at'          => gmdate( 'Y-m-d\TH:i:s\Z', $grace_ts ),
+			'last_validated_at'      => $this->to_iso8601( $activation->last_validated_at ),
+			'licence_id'             => (int) $licence->id,
+			'licence_status'         => $licence->status,
+			'next_validation_due_at' => $this->to_iso8601( $activation->next_validation_due_at ),
+			'plan_code'              => $licence->plan_code,
+			'product_code'           => CKP_PRODUCT_CODE,
+			'server_time_utc'        => $now,
+		) );
+
+		$this->log_attempt( $licence->id, $activation->id, $email, 'success', '', $request );
+
+		return new WP_REST_Response( array_merge(
+			array( 'result' => 'valid' ),
+			$payload,
+			array( 'signature' => CKP_Signing_Service::sign( $payload ) )
 		), 200 );
 	}
 
