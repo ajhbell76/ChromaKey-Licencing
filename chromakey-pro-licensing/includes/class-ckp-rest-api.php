@@ -24,15 +24,14 @@ class CKP_Rest_API {
 			'callback'            => array( $this, 'validate' ),
 			'permission_callback' => '__return_true',
 		) );
-		// Stub for WP-6.
 		register_rest_route( self::NAMESPACE, '/deactivate', array(
 			'methods'             => 'POST',
-			'callback'            => array( $this, 'not_implemented' ),
+			'callback'            => array( $this, 'deactivate' ),
 			'permission_callback' => '__return_true',
 		) );
 		register_rest_route( self::NAMESPACE, '/status', array(
 			'methods'             => 'POST',
-			'callback'            => array( $this, 'not_implemented' ),
+			'callback'            => array( $this, 'status' ),
 			'permission_callback' => '__return_true',
 		) );
 		register_rest_route( self::NAMESPACE, '/health', array(
@@ -228,6 +227,92 @@ class CKP_Rest_API {
 			array( 'result' => 'valid' ),
 			$payload,
 			array( 'signature' => CKP_Signing_Service::sign( $payload ) )
+		), 200 );
+	}
+
+	// -------------------------------------------------------------------------
+	// POST /deactivate
+	// -------------------------------------------------------------------------
+
+	public function deactivate( WP_REST_Request $request ) {
+		if ( ! $this->is_api_enabled() ) {
+			return $this->error( 'api_disabled', 'The licensing API is currently disabled.', 503 );
+		}
+
+		$required = array( 'licence_id', 'activation_id', 'device_fingerprint_hash' );
+		foreach ( $required as $field ) {
+			if ( empty( $request->get_param( $field ) ) ) {
+				return $this->error( 'missing_field', "Field '$field' is required.", 400 );
+			}
+		}
+
+		$licence_id    = (int) $request->get_param( 'licence_id' );
+		$activation_id = (int) $request->get_param( 'activation_id' );
+		$fingerprint   = sanitize_text_field( $request->get_param( 'device_fingerprint_hash' ) );
+
+		// Confirm the activation belongs to the stated licence before deactivating.
+		global $wpdb;
+		$activation = $wpdb->get_row( $wpdb->prepare(
+			'SELECT * FROM `' . CKP_DB::table( 'activations' ) . '` WHERE id = %d AND licence_id = %d LIMIT 1',
+			$activation_id, $licence_id
+		) );
+
+		if ( ! $activation ) {
+			return $this->error( 'activation_not_found', 'Activation not found for this licence.', 404 );
+		}
+
+		$result = CKP_Activation_Service::deactivate( $activation_id, $fingerprint );
+
+		if ( is_wp_error( $result ) ) {
+			$status = $result->get_error_code() === 'device_mismatch' ? 403 : 400;
+			return $this->error( $result->get_error_code(), $result->get_error_message(), $status );
+		}
+
+		return new WP_REST_Response( array( 'result' => 'deactivated' ), 200 );
+	}
+
+	// -------------------------------------------------------------------------
+	// POST /status
+	// -------------------------------------------------------------------------
+
+	public function status( WP_REST_Request $request ) {
+		if ( ! $this->is_api_enabled() ) {
+			return $this->error( 'api_disabled', 'The licensing API is currently disabled.', 503 );
+		}
+
+		$licence_id    = (int) $request->get_param( 'licence_id' );
+		$activation_id = (int) $request->get_param( 'activation_id' );
+
+		if ( ! $licence_id || ! $activation_id ) {
+			return $this->error( 'missing_field', 'licence_id and activation_id are required.', 400 );
+		}
+
+		global $wpdb;
+		$licence = $wpdb->get_row( $wpdb->prepare(
+			'SELECT * FROM `' . CKP_DB::table( 'licences' ) . '` WHERE id = %d LIMIT 1',
+			$licence_id
+		) );
+
+		if ( ! $licence ) {
+			return $this->error( 'licence_not_found', 'Licence not found.', 404 );
+		}
+
+		$activation = $wpdb->get_row( $wpdb->prepare(
+			'SELECT * FROM `' . CKP_DB::table( 'activations' ) . '` WHERE id = %d AND licence_id = %d LIMIT 1',
+			$activation_id, $licence_id
+		) );
+
+		if ( ! $activation ) {
+			return $this->error( 'activation_not_found', 'Activation not found.', 404 );
+		}
+
+		return new WP_REST_Response( array(
+			'result'                 => $activation->status,
+			'licence_status'         => $licence->status,
+			'expires_at'             => $this->to_iso8601( $licence->expires_at ),
+			'activation_limit'       => (int) $licence->activation_limit,
+			'active_count'           => CKP_Activation_Service::count_active( $licence_id ),
+			'next_validation_due_at' => $this->to_iso8601( $activation->next_validation_due_at ),
 		), 200 );
 	}
 

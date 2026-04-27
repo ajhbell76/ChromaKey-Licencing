@@ -3,7 +3,7 @@
  * Plugin Name:       ChromaKey Pro Licensing
  * Plugin URI:        https://github.com/ajhbell76/ChromaKey-Licencing
  * Description:       Beta licensing system for ChromaKey Pro desktop application.
- * Version:           0.5.0
+ * Version:           0.6.0
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            ChromaKey Pro
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CKP_VERSION', '0.5.0' );
+define( 'CKP_VERSION', '0.6.0' );
 define( 'CKP_PLUGIN_FILE', __FILE__ );
 define( 'CKP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CKP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
