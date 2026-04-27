@@ -30,7 +30,7 @@ class CKP_Rest_API {
 			'permission_callback' => '__return_true',
 		) );
 		register_rest_route( self::NAMESPACE, '/status', array(
-			'methods'             => 'POST',
+			'methods'             => array( 'GET', 'POST' ),
 			'callback'            => array( $this, 'status' ),
 			'permission_callback' => '__return_true',
 		) );
@@ -280,8 +280,9 @@ class CKP_Rest_API {
 			return $this->error( 'api_disabled', 'The licensing API is currently disabled.', 503 );
 		}
 
-		$licence_id    = (int) $request->get_param( 'licence_id' );
-		$activation_id = (int) $request->get_param( 'activation_id' );
+		// Accepts params from JSON body (POST) or query string (GET).
+		$licence_id    = (int) ( $request->get_param( 'licence_id' ) ?? $request->get_query_params()['licence_id'] ?? 0 );
+		$activation_id = (int) ( $request->get_param( 'activation_id' ) ?? $request->get_query_params()['activation_id'] ?? 0 );
 
 		if ( ! $licence_id || ! $activation_id ) {
 			return $this->error( 'missing_field', 'licence_id and activation_id are required.', 400 );
