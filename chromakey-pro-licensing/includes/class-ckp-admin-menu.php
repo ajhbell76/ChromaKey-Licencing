@@ -9,6 +9,33 @@ class CKP_Admin_Menu {
 	public function init() {
 		add_action( 'admin_menu', array( $this, 'register_menus' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		add_action( 'admin_post_ckp_save_settings', array( $this, 'handle_save_settings' ) );
+	}
+
+	public function handle_save_settings() {
+		if ( ! current_user_can( CKP_CAPABILITY ) ) {
+			wp_die( 'Unauthorized' );
+		}
+
+		check_admin_referer( 'ckp_save_settings', 'ckp_nonce' );
+
+		$fields = array(
+			'default_activation_limit'    => 'intval',
+			'default_validation_interval' => 'intval',
+			'default_grace_period'        => 'intval',
+		);
+
+		foreach ( $fields as $key => $sanitize ) {
+			if ( isset( $_POST[ 'ckp_' . $key ] ) ) {
+				CKP_Settings::set( $key, $sanitize( $_POST[ 'ckp_' . $key ] ) );
+			}
+		}
+
+		CKP_Settings::set( 'api_enabled', isset( $_POST['ckp_api_enabled'] ) ? '1' : '0' );
+		CKP_Settings::set( 'debug_logging', isset( $_POST['ckp_debug_logging'] ) ? '1' : '0' );
+
+		wp_redirect( admin_url( 'admin.php?page=ckp-settings&updated=1' ) );
+		exit;
 	}
 
 	public function register_menus() {

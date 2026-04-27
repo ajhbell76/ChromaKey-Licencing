@@ -6,3 +6,19 @@
 	color: #666;
 	font-style: italic;
 }
+
+.ckp-key-status {
+	font-weight: 600;
+	padding: 2px 6px;
+	border-radius: 3px;
+}
+
+.ckp-key-ok {
+	color: #1a6e1a;
+	background: #edfaed;
+}
+
+.ckp-key-missing {
+	color: #8a1f11;
+	background: #fdf2f0;
+}
