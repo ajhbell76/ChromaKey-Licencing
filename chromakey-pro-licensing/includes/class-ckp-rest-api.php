@@ -10,6 +10,15 @@ class CKP_Rest_API {
 
 	public function init() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
+		// Suppress PHP error output on REST requests so raw errors never reach clients.
+		add_filter( 'rest_pre_dispatch', array( $this, 'suppress_errors_for_rest' ), 10, 3 );
+	}
+
+	public function suppress_errors_for_rest( $result, $server, $request ) {
+		if ( strpos( $request->get_route(), '/' . self::NAMESPACE ) === 0 ) {
+			@ini_set( 'display_errors', '0' );
+		}
+		return $result;
 	}
 
 	public function register_routes() {
@@ -50,6 +59,11 @@ class CKP_Rest_API {
 			return $this->error( 'api_disabled', 'The licensing API is currently disabled.', 503 );
 		}
 
+		$ip = $this->get_client_ip( $request );
+		if ( CKP_Rate_Limiter::is_limited( $ip ) ) {
+			return $this->error( 'too_many_requests', 'Too many failed attempts. Please try again later.', 429 );
+		}
+
 		// --- Required field validation ---
 		$required = array( 'email', 'licence_key', 'product_code', 'device_fingerprint_hash', 'installation_id_hash' );
 		foreach ( $required as $field ) {
@@ -63,6 +77,7 @@ class CKP_Rest_API {
 		$product     = sanitize_text_field( $request->get_param( 'product_code' ) );
 
 		if ( $product !== CKP_PRODUCT_CODE ) {
+			CKP_Rate_Limiter::record_failure( $ip );
 			$this->log_attempt( null, null, $email, 'failed', 'invalid_product_code', $request );
 			return $this->error( 'invalid_product_code', 'Unknown product code.', 400 );
 		}
@@ -70,6 +85,7 @@ class CKP_Rest_API {
 		// --- Licence lookup ---
 		$licence = CKP_Licence_Service::find_by_email_and_key( $email, $licence_key );
 		if ( ! $licence ) {
+			CKP_Rate_Limiter::record_failure( $ip );
 			$this->log_attempt( null, null, $email, 'failed', 'invalid_key', $request );
 			return $this->error( 'invalid_key', 'Licence key or email is incorrect.', 401 );
 		}
@@ -147,6 +163,7 @@ class CKP_Rest_API {
 
 		$signature = CKP_Signing_Service::sign( $payload );
 
+		CKP_Rate_Limiter::reset( $ip );
 		$this->log_attempt( $licence->id, $activation->id, $email, 'success', '', $request );
 
 		return new WP_REST_Response( array_merge(
@@ -166,6 +183,11 @@ class CKP_Rest_API {
 	public function validate( WP_REST_Request $request ) {
 		if ( ! $this->is_api_enabled() ) {
 			return $this->error( 'api_disabled', 'The licensing API is currently disabled.', 503 );
+		}
+
+		$ip = $this->get_client_ip( $request );
+		if ( CKP_Rate_Limiter::is_limited( $ip ) ) {
+			return $this->error( 'too_many_requests', 'Too many failed attempts. Please try again later.', 429 );
 		}
 
 		$required = array( 'licence_id', 'activation_id', 'product_code', 'device_fingerprint_hash' );
@@ -189,10 +211,13 @@ class CKP_Rest_API {
 
 		if ( is_wp_error( $result ) ) {
 			$code = $result->get_error_code();
+			CKP_Rate_Limiter::record_failure( $ip );
 			$this->log_attempt( $params['licence_id'], $params['activation_id'], '', 'failed', $code, $request );
 			$status = in_array( $code, array( 'licence_not_found', 'activation_not_found' ), true ) ? 404 : 403;
 			return $this->error( $code, $result->get_error_message(), $status );
 		}
+
+		CKP_Rate_Limiter::reset( $ip );
 
 		$licence    = $result['licence'];
 		$activation = $result['activation'];

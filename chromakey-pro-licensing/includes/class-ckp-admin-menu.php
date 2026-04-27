@@ -16,6 +16,7 @@ class CKP_Admin_Menu {
 		add_action( 'admin_post_ckp_save_licence', array( $this, 'handle_save_licence' ) );
 		add_action( 'admin_post_ckp_licence_action', array( $this, 'handle_licence_action' ) );
 		add_action( 'admin_post_ckp_activation_action', array( $this, 'handle_activation_action' ) );
+		add_action( 'admin_post_ckp_export_audit_log', array( $this, 'handle_export_audit_log' ) );
 	}
 
 	public function register_menus() {
@@ -375,6 +376,61 @@ class CKP_Admin_Menu {
 		}
 
 		wp_redirect( admin_url( 'admin.php?page=ckp-activations&ckp_msg=' . urlencode( $msg ) ) );
+		exit;
+	}
+
+	// -------------------------------------------------------------------------
+	// CSV export
+	// -------------------------------------------------------------------------
+
+	public function handle_export_audit_log() {
+		if ( ! current_user_can( CKP_CAPABILITY ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		check_admin_referer( 'ckp_export_audit_log' );
+
+		global $wpdb;
+		$table = CKP_DB::table( 'audit_log' );
+
+		$conditions = array( '1=1' );
+		if ( ! empty( $_GET['filter_action'] ) ) {
+			$conditions[] = $wpdb->prepare( 'action = %s', sanitize_key( $_GET['filter_action'] ) );
+		}
+		if ( ! empty( $_GET['filter_entity_type'] ) ) {
+			$conditions[] = $wpdb->prepare( 'entity_type = %s', sanitize_key( $_GET['filter_entity_type'] ) );
+		}
+		if ( ! empty( $_GET['filter_date_from'] ) ) {
+			$conditions[] = $wpdb->prepare( 'created_at >= %s', sanitize_text_field( $_GET['filter_date_from'] ) . ' 00:00:00' );
+		}
+		if ( ! empty( $_GET['filter_date_to'] ) ) {
+			$conditions[] = $wpdb->prepare( 'created_at <= %s', sanitize_text_field( $_GET['filter_date_to'] ) . ' 23:59:59' );
+		}
+		$where = 'WHERE ' . implode( ' AND ', $conditions );
+
+		$rows = $wpdb->get_results( "SELECT * FROM `$table` $where ORDER BY created_at DESC", ARRAY_A );
+
+		$filename = 'ckp-audit-log-' . date( 'Y-m-d' ) . '.csv';
+		header( 'Content-Type: text/csv; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+		header( 'Pragma: no-cache' );
+
+		$out = fopen( 'php://output', 'w' );
+		fputcsv( $out, array( 'ID', 'When (UTC)', 'Actor Type', 'Actor ID', 'Action', 'Entity Type', 'Entity ID', 'Old Value', 'New Value' ) );
+
+		foreach ( $rows as $row ) {
+			fputcsv( $out, array(
+				$row['id'],
+				$row['created_at'],
+				$row['actor_type'],
+				$row['actor_id'],
+				$row['action'],
+				$row['entity_type'],
+				$row['entity_id'],
+				$row['old_value_json'],
+				$row['new_value_json'],
+			) );
+		}
+		fclose( $out );
 		exit;
 	}
 

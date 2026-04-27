@@ -119,3 +119,30 @@
 	font-family: monospace;
 	word-break: break-all;
 }
+
+/* Audit log filters */
+.ckp-filter-form {
+	margin: 12px 0;
+}
+
+.ckp-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	background: #f6f7f7;
+	border: 1px solid #ccd0d4;
+	border-radius: 4px;
+	padding: 10px 12px;
+}
+
+.ckp-filters select,
+.ckp-filters input[type="date"] {
+	height: 30px;
+}
+
+.ckp-filter-count {
+	color: #646970;
+	font-style: italic;
+	margin: 4px 0 8px;
+}
