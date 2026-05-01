@@ -17,6 +17,7 @@ class CKP_Admin_Menu {
 		add_action( 'admin_post_ckp_licence_action', array( $this, 'handle_licence_action' ) );
 		add_action( 'admin_post_ckp_activation_action', array( $this, 'handle_activation_action' ) );
 		add_action( 'admin_post_ckp_export_audit_log', array( $this, 'handle_export_audit_log' ) );
+		add_action( 'admin_post_ckp_reissue_licence_key', array( $this, 'handle_reissue_key' ) );
 	}
 
 	public function register_menus() {
@@ -101,6 +102,15 @@ class CKP_Admin_Menu {
 		}
 		CKP_Settings::set( 'api_enabled', isset( $_POST['ckp_api_enabled'] ) ? '1' : '0' );
 		CKP_Settings::set( 'debug_logging', isset( $_POST['ckp_debug_logging'] ) ? '1' : '0' );
+
+		foreach ( array( 'email_from_name', 'email_subject_new', 'email_subject_reissue', 'email_template_text' ) as $key ) {
+			if ( isset( $_POST[ 'ckp_' . $key ] ) ) {
+				CKP_Settings::set( $key, sanitize_text_field( $_POST[ 'ckp_' . $key ] ) );
+			}
+		}
+		if ( isset( $_POST['ckp_email_template_html'] ) ) {
+			CKP_Settings::set( 'email_template_html', wp_kses_post( $_POST['ckp_email_template_html'] ) );
+		}
 
 		CKP_Audit_Service::log( 'settings_changed', 'settings', 0 );
 
@@ -310,6 +320,14 @@ class CKP_Admin_Menu {
 		// Store raw key in a short-lived transient — shown once on the edit page.
 		set_transient( 'ckp_rawkey_' . $new_id, $raw_key, 5 * MINUTE_IN_SECONDS );
 
+		if ( ! empty( $_POST['ckp_send_email'] ) ) {
+			$licence_row = self::get_licence( $new_id );
+			$sent = CKP_Email_Service::send_licence_issued( $account->email, $account, $raw_key, $licence_row );
+			if ( $sent ) {
+				CKP_Audit_Service::log( 'licence_key_emailed', 'licence', $new_id );
+			}
+		}
+
 		wp_redirect( admin_url( 'admin.php?page=ckp-licences&action=edit&id=' . $new_id . '&new_key=1' ) );
 		exit;
 	}
@@ -341,6 +359,56 @@ class CKP_Admin_Menu {
 		}
 
 		wp_redirect( admin_url( 'admin.php?page=ckp-licences&ckp_msg=' . urlencode( 'Licence updated.' ) ) );
+		exit;
+	}
+
+	public function handle_reissue_key() {
+		if ( ! current_user_can( CKP_CAPABILITY ) ) {
+			wp_die( 'Unauthorized' );
+		}
+
+		$id = (int) ( $_POST['licence_id'] ?? 0 );
+		check_admin_referer( 'ckp_reissue_key_' . $id, 'ckp_nonce' );
+
+		$licence = self::get_licence( $id );
+		if ( ! $licence ) {
+			wp_redirect( admin_url( 'admin.php?page=ckp-licences&ckp_error=' . urlencode( 'Licence not found.' ) ) );
+			exit;
+		}
+
+		$old_last4 = $licence->licence_key_last4;
+		$raw_key   = self::generate_licence_key();
+		$key_hash  = hash( 'sha256', $raw_key );
+		$last4     = substr( $raw_key, -4 );
+		$now       = current_time( 'mysql', true );
+
+		global $wpdb;
+		$wpdb->update(
+			CKP_DB::table( 'licences' ),
+			array(
+				'licence_key_hash'  => $key_hash,
+				'licence_key_last4' => $last4,
+				'updated_at'        => $now,
+			),
+			array( 'id' => $id ),
+			array( '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+
+		CKP_Audit_Service::log( 'licence_key_reissued', 'licence', $id,
+			array( 'last4' => $old_last4 ),
+			array( 'last4' => $last4 )
+		);
+
+		$atbl    = CKP_DB::table( 'accounts' );
+		$account = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `$atbl` WHERE id = %d LIMIT 1", $licence->account_id ) );
+
+		if ( $account ) {
+			$updated_licence = self::get_licence( $id );
+			CKP_Email_Service::send_licence_reissued( $account->email, $account, $raw_key, $updated_licence );
+		}
+
+		wp_redirect( admin_url( 'admin.php?page=ckp-licences&action=edit&id=' . $id . '&ckp_msg=' . urlencode( 'Key re-issued and emailed to customer.' ) ) );
 		exit;
 	}
 

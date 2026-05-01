@@ -94,6 +94,49 @@
 			</tr>
 		</table>
 
+		<h2 style="margin-top:2em;">Email Settings</h2>
+		<table class="form-table" role="presentation">
+			<tr>
+				<th><label for="ckp_email_from_name">From Name</label></th>
+				<td>
+					<input type="text" id="ckp_email_from_name" name="ckp_email_from_name"
+						value="<?php echo esc_attr( CKP_Settings::get( 'email_from_name', 'ChromaKey Pro' ) ); ?>"
+						class="regular-text">
+					<p class="description">The sender name shown in the customer's email client. The from address uses the WordPress site admin email.</p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="ckp_email_subject_new">New Key Subject</label></th>
+				<td>
+					<input type="text" id="ckp_email_subject_new" name="ckp_email_subject_new"
+						value="<?php echo esc_attr( CKP_Settings::get( 'email_subject_new', CKP_Email_Service::DEFAULT_SUBJECT_NEW ) ); ?>"
+						class="regular-text">
+				</td>
+			</tr>
+			<tr>
+				<th><label for="ckp_email_subject_reissue">Re-issue Subject</label></th>
+				<td>
+					<input type="text" id="ckp_email_subject_reissue" name="ckp_email_subject_reissue"
+						value="<?php echo esc_attr( CKP_Settings::get( 'email_subject_reissue', CKP_Email_Service::DEFAULT_SUBJECT_REISSUE ) ); ?>"
+						class="regular-text">
+				</td>
+			</tr>
+			<tr>
+				<th><label for="ckp_email_template_html">HTML Email Template</label></th>
+				<td>
+					<textarea id="ckp_email_template_html" name="ckp_email_template_html" rows="14" class="large-text code"><?php echo esc_textarea( CKP_Settings::get( 'email_template_html', CKP_Email_Service::DEFAULT_HTML ) ); ?></textarea>
+					<p class="description">Available placeholders: <code>{CUSTOMER_NAME}</code>, <code>{KEY}</code>, <code>{EXPIRY}</code>, <code>{ACTIVATION_LIMIT}</code>, <code>{PRODUCT_NAME}</code></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="ckp_email_template_text">Plain Text Template</label></th>
+				<td>
+					<textarea id="ckp_email_template_text" name="ckp_email_template_text" rows="14" class="large-text code"><?php echo esc_textarea( CKP_Settings::get( 'email_template_text', CKP_Email_Service::DEFAULT_TEXT ) ); ?></textarea>
+					<p class="description">Fallback for email clients that do not render HTML. Same placeholders apply.</p>
+				</td>
+			</tr>
+		</table>
+
 		<?php submit_button( 'Save Settings' ); ?>
 	</form>
 </div>

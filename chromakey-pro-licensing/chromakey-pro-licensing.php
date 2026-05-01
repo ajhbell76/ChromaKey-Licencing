@@ -26,6 +26,7 @@ require_once CKP_PLUGIN_DIR . 'includes/class-ckp-activator.php';
 require_once CKP_PLUGIN_DIR . 'includes/class-ckp-db.php';
 require_once CKP_PLUGIN_DIR . 'includes/class-ckp-settings.php';
 require_once CKP_PLUGIN_DIR . 'includes/class-ckp-audit-service.php';
+require_once CKP_PLUGIN_DIR . 'includes/class-ckp-email-service.php';
 require_once CKP_PLUGIN_DIR . 'includes/class-ckp-signing-service.php';
 require_once CKP_PLUGIN_DIR . 'includes/class-ckp-licence-service.php';
 require_once CKP_PLUGIN_DIR . 'includes/class-ckp-activation-service.php';
